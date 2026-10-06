@@ -8,29 +8,31 @@ import {
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
+import { createClient } from './supabase/server';
 
-const sql = postgres(process.env.POSTGRES_URL!, {
-  ssl: 'require',
-  prepare: false,
-});
+const globalForSql = globalThis as unknown as {
+  sql: ReturnType<typeof postgres> | undefined;
+};
+
+const sql =
+  globalForSql.sql ??
+  postgres(process.env.POSTGRES_URL!, {
+    ssl: 'require',
+    prepare: false,
+    max: 5,    // maximum number of connections in the pool
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForSql.sql = sql;
 
 export async function fetchRevenue() {
-  try {
-    // Artificially delay a response for demo purposes.
-    // Don't do this in production :)
-
-    // console.log('Fetching revenue data...');
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const data = await sql<Revenue[]>`SELECT * FROM revenue`;
-
-    // console.log('Data fetch completed after 3 seconds.');
-
-    return data;
-  } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch revenue data.');
-  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("revenue").select("month, revenue")
+  
+  if (error) throw new Error(error.message)
+  
+  const order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  return data?.sort((a, b) => order.indexOf(a.month) - order.indexOf(b.month))
+  
 }
 
 export async function fetchLatestInvoices() {
@@ -219,3 +221,4 @@ export async function fetchFilteredCustomers(query: string) {
     throw new Error('Failed to fetch customer table.');
   }
 }
+

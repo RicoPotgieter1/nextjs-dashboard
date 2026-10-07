@@ -5,6 +5,7 @@ import postgres from 'postgres';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/app/lib/supabase/server';
+import { fromDateTimeLocal } from '@/app/lib/time'
 
 
 const sql = postgres(process.env.POSTGRES_URL!, {ssl: 'require'});
@@ -221,4 +222,50 @@ export async function deletePatient(id: string) {
     throw new Error(`Database error ${error.code}: failed to delete patient.`);
   }
   revalidatePath('/dashboard/patients');
+}
+
+const AppointmentSchema = z.object({
+  patient_id: z.string().min(1),
+  starts_at: z.string().min(16),
+  status: z.enum(['booked', 'done', 'no_show']),
+})
+
+function parseAppointment(formData: FormData) {
+  return AppointmentSchema.parse({
+    patient_id: formData.get('patient_id'),
+    starts_at: formData.get('starts_at'),
+    status: formData.get('status'),
+  })
+}
+
+export async function createAppointment(formData: FormData) {
+  const a = parseAppointment(formData)
+  const supabase = await createClient()
+  const { error } = await supabase.from('appointments').insert({
+    patient_id: a.patient_id,
+    starts_at: fromDateTimeLocal(a.starts_at),
+    status: a.status,
+  })
+  if (error) throw new Error(`${error.code}: ${error.message}`)
+  revalidatePath('/dashboard/appointments')
+  redirect('/dashboard/appointments')
+}
+
+export async function updateAppointment(id: string, formData: FormData) {
+  const a = parseAppointment(formData)
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('appointments')
+    .update({ patient_id: a.patient_id, starts_at: fromDateTimeLocal(a.starts_at), status: a.status })
+    .eq('id', id)
+  if (error) throw new Error(`${error.code}: ${error.message}`)
+  revalidatePath('/dashboard/appointments')
+  redirect('/dashboard/appointments')
+}
+
+export async function deleteAppointment(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('appointments').delete().eq('id', id)
+  if (error) throw new Error(`${error.code}: ${error.message}`)
+  revalidatePath('/dashboard/appointments')
 }

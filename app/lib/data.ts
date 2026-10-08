@@ -229,13 +229,14 @@ export type Patient = {
   phone: string | null;
   date_of_birth: string | null;
   created_at: string;
+  file_path: string | null;
 };
 
 export async function fetchPatients(): Promise<Patient[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('patients')
-    .select('id, user_id, full_name, phone, date_of_birth, created_at')
+    .select('id, user_id, full_name, phone, date_of_birth, created_at, file_path')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -249,7 +250,7 @@ export async function fetchPatientById(id: string): Promise<Patient | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('patients')
-    .select('id, user_id, full_name, phone, date_of_birth, created_at')
+    .select('id, user_id, full_name, phone, date_of_birth, created_at, file_path')
     .eq('id', id)
     .maybeSingle();
 
@@ -262,19 +263,38 @@ export async function fetchPatientById(id: string): Promise<Patient | null> {
 
 export interface AppointmentRow {
   id: string
+  patient_id: string
   starts_at: string
   status: 'booked' | 'done' | 'no_show'
-  patients: { full_name: string }[]
+  patient_name: string | null
 }
 
 export async function fetchAppointments(): Promise<AppointmentRow[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('appointments')
-    .select('id, starts_at, status, patients ( full_name )')
+    .select('id, patient_id, starts_at, status')
     .order('starts_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return data as AppointmentRow[]
+
+  const patientIds = [...new Set(data.map((appointment) => appointment.patient_id))]
+  const patientNames = new Map<string, string>()
+
+  if (patientIds.length > 0) {
+    const { data: patients, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, full_name')
+      .in('id', patientIds)
+    if (patientsError) throw new Error(patientsError.message)
+    for (const patient of patients) {
+      patientNames.set(patient.id, patient.full_name)
+    }
+  }
+
+  return data.map((appointment) => ({
+    ...appointment,
+    patient_name: patientNames.get(appointment.patient_id) ?? null,
+  }))
 }
 
 export async function fetchPatientOptions(): Promise<{ id: string; full_name: string }[]> {
@@ -292,4 +312,28 @@ export async function fetchAppointmentById(id: string) {
     .eq('id', id)
     .single()
   return data
+}
+
+export interface StatusRow {
+  status: 'booked' | 'done' | 'no_show'
+  total: number
+}
+
+export async function fetchAppointmentStatusThisMonth(): Promise<StatusRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('appointment_status_this_month').select('status, total')
+  if (error) throw new Error(error.message)
+  return data as StatusRow[]
+}
+
+export interface perMonth{
+  label: string
+  new_patients: number
+}
+
+export async function fetchPatientsPerMonth(): Promise<perMonth[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('patients_per_month').select('label, new_patients')
+  if (error) throw new Error(error.message)
+    return data as perMonth[]
 }

@@ -269,3 +269,20 @@ export async function deleteAppointment(id: string) {
   if (error) throw new Error(`${error.code}: ${error.message}`)
   revalidatePath('/dashboard/appointments')
 }
+
+export async function uploadPatientFile(patientId: string, formData: FormData) {
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) return
+
+  const supabase = await createClient()
+  const { data: claims } = await supabase.auth.getClaims()
+  const userId = claims?.claims.sub
+  if (!userId) return
+
+  const path = `${userId}/${patientId}/${file.name}`
+  const { data, error } = await supabase.storage.from('patient-files').upload(path, file)
+  if (error) throw new Error(error.message)
+
+  await supabase.from('patients').update({ file_path: data.path }).eq('id', patientId)
+  revalidatePath(`/dashboard/patients/${patientId}/edit`)
+}

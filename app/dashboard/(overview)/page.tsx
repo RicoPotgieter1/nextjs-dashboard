@@ -8,13 +8,21 @@ import {
     LatestInvoicesSkeleton,
     CardsSkeleton
   } from '@/app/ui/skeletons';
-  import { Metadata } from 'next';
+import { Metadata } from 'next';
+
+import { fetchPatientsPerMonth, fetchAppointmentStatusThisMonth } from '@/app/lib/data'
+import PatientsChart from '@/app/ui/dashboard/patients-chart'
+import StatusDonut from '@/app/ui/dashboard/status-donut'
 
 export const metadata: Metadata = {
   title: 'Dashboard',
 };
 
-  export default async function Page() { 
+  export default async function Page() {
+    const [perMonth, statusRows] = await Promise.all([
+    fetchPatientsPerMonth(),
+    fetchAppointmentStatusThisMonth(),
+    ]) 
   return (
     <main>
       <h1 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
@@ -33,6 +41,16 @@ export const metadata: Metadata = {
         <Suspense fallback={<LatestInvoicesSkeleton />}>
           <LatestInvoices />
         </Suspense>
+
+        <div className="w-full md:col-span-4">
+          <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
+            What share of this month's appointments are no-shows?
+          </h2>
+
+          <div className="rounded-xl bg-gray-50 p-4">
+            <StatusDonut rows={statusRows} />
+          </div>
+        </div>
 
       </div>
     </main>

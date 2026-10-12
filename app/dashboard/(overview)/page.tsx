@@ -52,6 +52,16 @@ export const metadata: Metadata = {
           </div>
         </div>
 
+        <div className="w-full md:col-span-4">
+          <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
+            What share of this month's appointments are no-shows?
+          </h2>
+
+          <div className="rounded-xl bg-gray-50 p-4">
+            <PatientsChart rows={perMonth} />
+          </div>
+        </div>
+
       </div>
     </main>
   );

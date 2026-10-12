@@ -1,36 +1,31 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { generateMockData, RechartsDevtools } from '@recharts/devtools';
-import type { perMonth } from '@/app/lib/data'
+'use client';
 
-const DISPLAY: Record<string, string> = { Jan: 'Jan 2026' }
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { perMonth } from '@/app/lib/data';
 
 export default function PatientBarChart({ rows }: { rows: perMonth[] }) {
-  const total = rows.reduce((n, r) => n + r.new_patients, 0)
+  const total = rows.reduce((sum, row) => sum + row.new_patients, 0);
+
   if (total === 0) {
-  return <p className="text-sm text-gray-500">No appointments this month yet. Add one to see the split.</p>
+    return <p className="text-sm text-gray-500">No new patients yet. Add one to see the trend.</p>;
   }
-  const data = rows.map((r) => ({ name: DISPLAY[r.label] ?? r.label, value: r.new_patients }))
-  const noShow = rows.find((r) => r.label === 'no_show')?.new_patients ?? 0 
+
+  const data = rows.map((row) => ({
+    name: row.label,
+    patients: row.new_patients,
+  }));
+
   return (
-    <BarChart
-      style={{ width: '100%', maxWidth: '700px', maxHeight: '70vh', aspectRatio: 1.618 }}
-      responsive
-      data={data}
-      margin={{
-        top: 5,
-        right: 0,
-        left: 0,
-        bottom: 5,
-      }}
-    >
-      <CartesianGrid />
-      <XAxis dataKey="label" />
-      <YAxis width="auto" />
-      <Tooltip />
-      <Legend />
-      <Bar dataKey="x" radius={[10, 10, 0, 0]} />
-      <Bar dataKey="y" radius={[10, 10, 0, 0]} />
-      <RechartsDevtools />
-    </BarChart>
+    <div className="h-[300px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis allowDecimals={false} />
+          <Tooltip />
+          <Bar dataKey="patients" fill="#2563eb" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
-};
+}

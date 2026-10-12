@@ -279,10 +279,78 @@ export async function uploadPatientFile(patientId: string, formData: FormData) {
   const userId = claims?.claims.sub
   if (!userId) return
 
+  const { data: patient, error: patientError } = await supabase
+    .from('patients')
+    .select('file_path')
+    .eq('id', patientId)
+    .single()
+
+  if (patientError) {
+    throw new Error(`Database error ${patientError.code}: failed to check for an existing patient file.`)
+  }
+
   const path = `${userId}/${patientId}/${file.name}`
   const { data, error } = await supabase.storage.from('patient-files').upload(path, file)
   if (error) throw new Error(error.message)
 
-  await supabase.from('patients').update({ file_path: data.path }).eq('id', patientId)
+  const { data: updatedPatient, error: updateError } = await supabase
+    .from('patients')
+    .update({ file_path: data.path })
+    .eq('id', patientId)
+    .is('file_path', null)
+    .select('id')
+    .maybeSingle()
+
+  if (updateError) {
+    throw new Error(`${updateError.code}: ${updateError.message}`)
+  }
+  if (!updatedPatient) {
+    const { error: cleanupError } = await supabase.storage.from('patient-files').remove([data.path])
+    if (cleanupError) {
+      throw new Error(`An existing file prevented this upload, and the new file could not be removed: ${cleanupError.message}`)
+    }
+    revalidatePath(`/dashboard/patients/${patientId}/edit`)
+    return
+  }
+
   revalidatePath(`/dashboard/patients/${patientId}/edit`)
+}
+
+export async function deletePatientFile(patientId: string) {
+  const supabase = await createClient();
+
+  const { data: patient, error: patientError } = await supabase
+    .from('patients')
+    .select('file_path')
+    .eq('id', patientId)
+    .single();
+
+  if (patientError) {
+    throw new Error(`Database error ${patientError.code}: failed to load patient file.`);
+  }
+
+  const filePath = patient?.file_path;
+
+  if (filePath) {
+    const { error: storageError } = await supabase.storage.from('patient-files').remove([filePath]);
+    if (storageError) {
+      throw new Error(storageError.message);
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from('patients')
+    .update({ file_path: null })
+    .eq('id', patientId);
+
+  if (updateError) {
+    throw new Error(`${updateError.code}: ${updateError.message}`);
+  }
+
+  revalidatePath(`/dashboard/patients/${patientId}/edit`);
+}
+
+export async function cancelPatientEdit(patientId: string) {
+  await deletePatientFile(patientId);
+  redirect('/dashboard/patients');
 }

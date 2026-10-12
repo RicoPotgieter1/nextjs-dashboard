@@ -5,7 +5,7 @@ import { RefreshOnChange } from '@/app/ui/refresh-on-change'
 
 export default async function Page() {
   const patients = await fetchPatients();
-
+  let fileName = null
   return (
     
     <div className="w-full">
@@ -21,19 +21,21 @@ export default async function Page() {
         <table className="mt-6 min-w-full text-gray-900">
           <thead className="text-left text-sm font-normal">
             <tr>
-              <th className="px-4 py-3 font-medium">Full name</th>
-              <th className="px-3 py-3 font-medium">Phone</th>
-              <th className="px-3 py-3 font-medium">Date of birth</th>
+              <th className="pl-20 px-3 py-3 font-medium">Full name</th>
+              <th className="pl-20 px-3 py-3 font-medium">Phone</th>
+              <th className="pl-20 px-3 py-3 font-medium">Date of birth</th>
+              <th className="pl-20 px-3 py-3 font-medium">Docs</th>
               <th className="py-3 pl-6 pr-3"><span className="sr-only">Edit</span></th>
             </tr>
           </thead>
           <tbody className="bg-white">
             {patients.map((p) => (
               <tr key={p.id} className="border-b text-sm">
-                <td className="whitespace-nowrap px-4 py-3">{p.full_name}</td>
-                <td className="whitespace-nowrap px-3 py-3">{p.phone ?? ''}</td>
-                <td className="whitespace-nowrap px-3 py-3">{p.date_of_birth ?? ''}</td>
-                <td className="whitespace-nowrap py-3 pl-6 pr-3">
+                <td className="whitespace-nowrap pl-20 px-3 py-3">{p.full_name}</td>
+                <td className="whitespace-nowrap pl-20 px-3 py-3">{p.phone ?? ''}</td>
+                <td className="whitespace-nowrap pl-20 px-3 py-3">{p.date_of_birth ?? ''}</td>
+                <td className="whitespace-nowrap pl-20 px-3 py-3">{fileName = p.file_path === null ? '': p.file_path.split('/').pop() ?? ''}</td>
+                <td className="whitespace-nowrap py-3 pl-4 pr-3">
                   <div className="flex justify-end gap-3">
                     <UpdatePatient id={p.id} />
                     <DeletePatient id={p.id} />

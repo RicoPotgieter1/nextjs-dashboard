@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useActionState } from 'react';
 import { Button } from '@/app/ui/button';
-import { updatePatient, type PatientState } from '@/app/lib/actions';
+import { cancelPatientEdit, updatePatient, type PatientState } from '@/app/lib/actions';
 import type { Patient } from '@/app/lib/data';
 
 export default function EditForm({ patient }: { patient: Patient }) {
@@ -40,10 +39,13 @@ export default function EditForm({ patient }: { patient: Patient }) {
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-4">
-        <Link href="/dashboard/patients"
-          className="flex h-10 items-center rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-600 hover:bg-gray-200">
+        <button
+          type="submit"
+          formAction={cancelPatientEdit.bind(null, patient.id)}
+          className="flex h-10 items-center rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-600 hover:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+        >
           Cancel
-        </Link>
+        </button>
         <Button type="submit">Save</Button>
       </div>
     </form>

@@ -1,16 +1,20 @@
 import postgres from 'postgres';
+import { fetchVisiblePatientIds } from '@/app/lib/patient-access';
 
 const sql = postgres(process.env.POSTGRES_URL!, {
   ssl: 'require',
   prepare: false,
 });
 
-async function listInvoices() {
+async function listInvoices(patientIds: string[]) {
+  if (patientIds.length === 0) return [];
+
 	const data = await sql`
-    SELECT invoices.amount, customers.name
+    SELECT invoices.amount, patients.full_name
     FROM invoices
-    JOIN customers ON invoices.customer_id = customers.id
-    WHERE invoices.amount = 666;
+    LEFT JOIN patients ON invoices.patient_id = patients.id
+    WHERE invoices.amount = 666
+      AND invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[]);
   `;
 
 	return data;
@@ -18,7 +22,8 @@ async function listInvoices() {
 
 export async function GET() {
   try {
-  	return Response.json(await listInvoices());
+    const patientIds = await fetchVisiblePatientIds();
+    return Response.json(await listInvoices(patientIds));
   } catch (error) {
   	return Response.json({ error }, { status: 500 });
   }

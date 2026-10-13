@@ -6,15 +6,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/app/lib/supabase/server';
 import { fromDateTimeLocal } from '@/app/lib/time'
+import { fetchVisiblePatientIds } from '@/app/lib/patient-access';
 
 
 const sql = postgres(process.env.POSTGRES_URL!, {ssl: 'require'});
  
 const FormSchema = z.object({
   id: z.string(),
-  customerId: z.string({
-    invalid_type_error: 'Please select a customer.',
-  }).min(1, { message: 'Please select a customer.' }),
+  patientId: z.string({
+    invalid_type_error: 'Please select a patient.',
+  }).uuid({ message: 'Please select a patient.' }),
   amount: z.coerce
     .number()
     .gt(0, { message: 'Please enter an amount greater than $0.' }),
@@ -29,7 +30,7 @@ const UpdateInvoice = FormSchema.omit({ id: true, date: true });
 
 export type State = {
   errors?: {
-    customerId?: string[];
+    patientId?: string[];
     amount?: string[];
     status?: string[];
   };
@@ -39,7 +40,7 @@ export type State = {
 export async function createInvoice(prevState: State, formData: FormData) {
   // Validate form using Zod
   const validatedFields = CreateInvoice.safeParse({
-    customerId: formData.get('customerId'),
+    patientId: formData.get('patientId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
@@ -53,15 +54,20 @@ export async function createInvoice(prevState: State, formData: FormData) {
   }
  
   // Prepare data for insertion into the database
-  const { customerId, amount, status } = validatedFields.data;
+  const { patientId, amount, status } = validatedFields.data;
+  const visiblePatientIds = await fetchVisiblePatientIds();
+  if (!visiblePatientIds.includes(patientId)) {
+    return { message: 'You can only create invoices for patients you can access.' };
+  }
+
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split('T')[0];
  
   // Insert data into the database
   try {
     await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+      INSERT INTO invoices (patient_id, amount, status, date)
+      VALUES (${patientId}, ${amountInCents}, ${status}, ${date})
     `;
   } catch (error) {
     // If a database error occurs, return a more specific error.
@@ -72,6 +78,7 @@ export async function createInvoice(prevState: State, formData: FormData) {
  
   // Revalidate the cache for the invoices page and redirect the user.
   revalidatePath('/dashboard/invoices');
+  revalidatePath('/dashboard');
   redirect('/dashboard/invoices');
 }
 
@@ -81,7 +88,7 @@ export async function updateInvoice(
   formData: FormData,
 ) {
   const validatedFields = UpdateInvoice.safeParse({
-    customerId: formData.get('customerId'),
+    patientId: formData.get('patientId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
@@ -93,26 +100,56 @@ export async function updateInvoice(
     };
   }
  
-  const { customerId, amount, status } = validatedFields.data;
+  const { patientId, amount, status } = validatedFields.data;
+  const visiblePatientIds = await fetchVisiblePatientIds();
+  if (
+    !visiblePatientIds.includes(patientId) ||
+    visiblePatientIds.length === 0
+  ) {
+    return { message: 'You can only use patients you can access.' };
+  }
+
   const amountInCents = amount * 100;
- 
+
   try {
-    await sql`
+    const updated = await sql`
       UPDATE invoices
-      SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+      SET patient_id = ${patientId}, amount = ${amountInCents}, status = ${status}
       WHERE id = ${id}
+        AND patient_id = ANY(${sql.array(visiblePatientIds)}::uuid[])
+      RETURNING id
     `;
+    if (updated.length === 0) {
+      return { message: 'Invoice not found or you do not have access to it.' };
+    }
   } catch (error) {
+    console.error('Database error while updating invoice:', error);
     return { message: 'Database Error: Failed to Update Invoice.' };
   }
  
   revalidatePath('/dashboard/invoices');
+  revalidatePath('/dashboard');
   redirect('/dashboard/invoices');
 }
 
 export async function deleteInvoice(id: string) {
-  await sql`DELETE FROM invoices WHERE id = ${id}`;
+  const visiblePatientIds = await fetchVisiblePatientIds();
+  if (visiblePatientIds.length === 0) {
+    throw new Error('You do not have access to delete this invoice.');
+  }
+
+  const deleted = await sql`
+    DELETE FROM invoices
+    WHERE id = ${id}
+      AND patient_id = ANY(${sql.array(visiblePatientIds)}::uuid[])
+    RETURNING id
+  `;
+  if (deleted.length === 0) {
+    throw new Error('Invoice not found or you do not have access to delete it.');
+  }
+
   revalidatePath('/dashboard/invoices');
+  revalidatePath('/dashboard');
 }
 
 export async function authenticate(
@@ -273,28 +310,68 @@ export async function deleteAppointment(id: string) {
   revalidatePath('/dashboard/calendar')
 }
 
-export async function uploadPatientFile(patientId: string, formData: FormData) {
+export type UploadPatientFileState = {
+  message?: string | null;
+  success?: boolean;
+};
+
+const MAX_PATIENT_FILE_SIZE = 20 * 1024 * 1024;
+const ALLOWED_PATIENT_FILE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/pdf',
+]);
+
+export async function uploadPatientFile(
+  patientId: string,
+  _prevState: UploadPatientFileState,
+  formData: FormData,
+): Promise<UploadPatientFileState> {
   const file = formData.get('file')
-  if (!(file instanceof File) || file.size === 0) return
+  if (!(file instanceof File) || file.size === 0) {
+    return { message: 'Choose a file before uploading.' };
+  }
+  if (!ALLOWED_PATIENT_FILE_TYPES.has(file.type)) {
+    return { message: 'Choose a PNG, JPEG, WebP, or PDF file.' };
+  }
+  if (file.size > MAX_PATIENT_FILE_SIZE) {
+    return { message: 'The file must be 20 MB or smaller.' };
+  }
 
   const supabase = await createClient()
-  const { data: claims } = await supabase.auth.getClaims()
-  const userId = claims?.claims.sub
-  if (!userId) return
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError) {
+    console.error('Supabase error while verifying file uploader:', userError);
+    return { message: 'Could not verify your account. Please sign in again and retry.' };
+  }
+  if (!user) {
+    return { message: 'You must be signed in to upload a patient file.' };
+  }
 
   const { data: patient, error: patientError } = await supabase
     .from('patients')
     .select('file_path')
     .eq('id', patientId)
-    .single()
+    .maybeSingle()
 
   if (patientError) {
-    throw new Error(`Database error ${patientError.code}: failed to check for an existing patient file.`)
+    console.error('Supabase error while checking patient file access:', patientError);
+    return { message: 'Could not verify access to this patient. Refresh the page and try again.' };
+  }
+  if (!patient) {
+    return { message: 'This patient is unavailable or you do not have access to it.' };
+  }
+  if (patient.file_path) {
+    return { message: 'This patient already has a file. Delete it before uploading another.' };
   }
 
-  const path = `${userId}/${patientId}/${file.name}`
+  const path = `${user.id}/${patientId}/${file.name}`
   const { data, error } = await supabase.storage.from('patient-files').upload(path, file)
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('Supabase Storage error while uploading patient file:', error);
+    return { message: `Upload failed: ${error.message}` };
+  }
 
   const { data: updatedPatient, error: updateError } = await supabase
     .from('patients')
@@ -305,18 +382,30 @@ export async function uploadPatientFile(patientId: string, formData: FormData) {
     .maybeSingle()
 
   if (updateError) {
-    throw new Error(`${updateError.code}: ${updateError.message}`)
+    const { error: cleanupError } = await supabase.storage.from('patient-files').remove([data.path]);
+    console.error('Supabase error while saving patient file path:', updateError);
+    if (cleanupError) {
+      console.error('Supabase error while cleaning up failed patient upload:', cleanupError);
+      return {
+        message: `The file uploaded, but its patient record could not be updated and cleanup failed: ${cleanupError.message}`,
+      };
+    }
+    return { message: `Could not save the uploaded file to this patient: ${updateError.message}` };
   }
   if (!updatedPatient) {
     const { error: cleanupError } = await supabase.storage.from('patient-files').remove([data.path])
     if (cleanupError) {
-      throw new Error(`An existing file prevented this upload, and the new file could not be removed: ${cleanupError.message}`)
+      console.error('Supabase error while cleaning up duplicate patient upload:', cleanupError);
+      return {
+        message: `An existing file prevented this upload, and the new file could not be removed: ${cleanupError.message}`,
+      };
     }
     revalidatePath(`/dashboard/patients/${patientId}/edit`)
-    return
+    return { message: 'This patient already has a file. Delete it before uploading another.' };
   }
 
   revalidatePath(`/dashboard/patients/${patientId}/edit`)
+  return { message: 'File uploaded successfully.', success: true };
 }
 
 export async function deletePatientFile(patientId: string) {

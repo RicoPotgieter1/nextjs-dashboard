@@ -23,7 +23,7 @@ export default function PatientBarChart({ rows }: { rows: perMonth[] }) {
           <XAxis dataKey="name" />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Bar dataKey="patients" fill="#2563eb" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="patients" fill="#93c5fd" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

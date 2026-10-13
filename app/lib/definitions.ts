@@ -9,16 +9,9 @@ export type User = {
   password: string;
 };
 
-export type Customer = {
-  id: string;
-  name: string;
-  email: string;
-  image_url: string;
-};
-
 export type Invoice = {
   id: string;
-  customer_id: string;
+  patient_id: string | null;
   amount: number;
   date: string;
   // In TypeScript, this is called a string union type.
@@ -33,9 +26,8 @@ export type Revenue = {
 
 export type LatestInvoice = {
   id: string;
-  name: string;
-  image_url: string;
-  email: string;
+  patient_name: string | null;
+  phone: string | null;
   amount: string;
 };
 
@@ -46,43 +38,22 @@ export type LatestInvoiceRaw = Omit<LatestInvoice, 'amount'> & {
 
 export type InvoicesTable = {
   id: string;
-  customer_id: string;
-  name: string;
-  email: string;
-  image_url: string;
+  patient_id: string | null;
+  patient_name: string | null;
+  phone: string | null;
   date: string;
   amount: number;
   status: 'pending' | 'paid';
 };
 
-export type CustomersTableType = {
-  id: string;
-  name: string;
-  email: string;
-  image_url: string;
-  total_invoices: number;
-  total_pending: number;
-  total_paid: number;
-};
-
-export type FormattedCustomersTable = {
-  id: string;
-  name: string;
-  email: string;
-  image_url: string;
-  total_invoices: number;
-  total_pending: string;
-  total_paid: string;
-};
-
-export type CustomerField = {
-  id: string;
-  name: string;
-};
-
 export type InvoiceForm = {
   id: string;
-  customer_id: string;
+  patient_id: string | null;
   amount: number;
   status: 'pending' | 'paid';
+};
+
+export type PatientField = {
+  id: string;
+  full_name: string;
 };

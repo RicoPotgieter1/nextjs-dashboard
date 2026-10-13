@@ -4,6 +4,11 @@ import { deletePatientFile } from '@/app/lib/actions';
 import EditForm from '@/app/ui/patients/edit-form';
 import { UploadForm } from '@/app/ui/patients/upload-form';
 import { createClient } from '@/app/lib/supabase/server';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Update Patient',
+};
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;

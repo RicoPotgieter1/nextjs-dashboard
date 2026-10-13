@@ -1,4 +1,9 @@
 import Form from '@/app/ui/patients/create-form';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Add Patient',
+};
 
 export default function Page() {
   return (

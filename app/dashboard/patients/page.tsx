@@ -4,6 +4,11 @@ import { lusitana } from '@/app/ui/fonts';
 import { RefreshOnChange } from '@/app/ui/refresh-on-change';
 import Pagination from '@/app/ui/invoices/pagination';
 import Search from '@/app/ui/search';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Patients',
+};
 
 export default async function Page(props: {
   searchParams?: Promise<{ page?: string; query?: string }>;

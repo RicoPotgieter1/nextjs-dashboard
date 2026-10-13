@@ -1,22 +1,36 @@
-## Clinic Care
-
-# about
-This website help clinics manage their patient appointments, plan their schedule better with a appointment calendar and track their patient invoices
+# Clinic Care
 
 Production: https://nextjs-dashboard-gamma-lemon-kyjcybo0s5.vercel.app/
 
-Tech Stack:
-* Vercel: Used for hosting the live webpage
-* Supabase: Used for data storage
-* Tailwind: Used for the stylling of the webpage
-* next.js
-* React
-* Typescript
+## What is it:
+Clinic Care helps clinics manage patient records, schedule appointments, view appointment trends, and track invoices—all in one dashboard.
 
-Known Limitations:
+## Two questions the charts answer:
+1. What share of this month's appointments are no-shows?
+2. Is the practice growing? New patients per month
+
+## DEMO LOGIN (for reviewers)
+Email: testuser1@gmail.com
+Password: 12345678
+
+## Tech Stack:
+* Vercel
+* Supabase (Postgres, Auth, Row Level Security (RLS))
+* Tailwind 
+* next.js (App Router, Server Actions)
+* React 
+* Typescript 
+* Recharts
+* charts.js
+* FullCalendar 
+* pnpm
+
+## Known Limitations:
 * There is no mailing system set up for appointment reminders
-* There is no patient page for setting or viewing appointments
+* There’s no patient self-service portal for booking or viewing appointments
+* No easy way of adding new accounts
 
-What I would do next:
+## What I would do next:
 * Add a client page so clients can set their own appointments
 * Add a mailing system for better communication between the clinic and the patient
+* Add a system admin page for easier access to the user accounts

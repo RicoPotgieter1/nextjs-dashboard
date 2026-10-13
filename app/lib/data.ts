@@ -1,7 +1,5 @@
 import postgres from 'postgres';
 import {
-  CustomerField,
-  CustomersTableType,
   InvoiceForm,
   InvoicesTable,
   LatestInvoiceRaw,
@@ -9,6 +7,7 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 import { createClient } from './supabase/server';
+import { fetchVisiblePatientIds } from './patient-access';
 
 const globalForSql = globalThis as unknown as {
   sql: ReturnType<typeof postgres> | undefined;
@@ -36,11 +35,15 @@ export async function fetchRevenue() {
 }
 
 export async function fetchLatestInvoices() {
+  const patientIds = await fetchVisiblePatientIds();
+  if (patientIds.length === 0) return [];
+
   try {
     const data = await sql<LatestInvoiceRaw[]>`
-      SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
+      SELECT invoices.amount, patients.full_name AS patient_name, patients.phone, invoices.id
       FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
+      JOIN patients ON invoices.patient_id = patients.id
+      WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
       ORDER BY invoices.date DESC
       LIMIT 5`;
 
@@ -56,33 +59,31 @@ export async function fetchLatestInvoices() {
 }
 
 export async function fetchCardData() {
+  const patientIds = await fetchVisiblePatientIds();
+  if (patientIds.length === 0) {
+    return {
+      numberOfPatients: 0,
+      numberOfInvoices: 0,
+      totalPaidInvoices: formatCurrency(0),
+      totalPendingInvoices: formatCurrency(0),
+    };
+  }
+
   try {
-    // You can probably combine these into a single SQL query
-    // However, we are intentionally splitting them to demonstrate
-    // how to initialize multiple queries in parallel with JS.
-    const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`;
-    const customerCountPromise = sql`SELECT COUNT(*) FROM customers`;
-    const invoiceStatusPromise = sql`SELECT
-         SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
-         SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
-         FROM invoices`;
-
-    const data = await Promise.all([
-      invoiceCountPromise,
-      customerCountPromise,
-      invoiceStatusPromise,
-    ]);
-
-    const numberOfInvoices = Number(data[0][0].count ?? '0');
-    const numberOfCustomers = Number(data[1][0].count ?? '0');
-    const totalPaidInvoices = formatCurrency(data[2][0].paid ?? '0');
-    const totalPendingInvoices = formatCurrency(data[2][0].pending ?? '0');
+    const [data] = await sql`
+      SELECT
+        COUNT(*) AS invoice_count,
+        SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid,
+        SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending
+      FROM invoices
+      WHERE patient_id = ANY(${sql.array(patientIds)}::uuid[])
+    `;
 
     return {
-      numberOfCustomers,
-      numberOfInvoices,
-      totalPaidInvoices,
-      totalPendingInvoices,
+      numberOfPatients: patientIds.length,
+      numberOfInvoices: Number(data.invoice_count ?? '0'),
+      totalPaidInvoices: formatCurrency(data.paid ?? '0'),
+      totalPendingInvoices: formatCurrency(data.pending ?? '0'),
     };
   } catch (error) {
     console.error('Database Error:', error);
@@ -96,25 +97,29 @@ export async function fetchFilteredInvoices(
   currentPage: number,
 ) {
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+  const patientIds = await fetchVisiblePatientIds();
+  if (patientIds.length === 0) return [];
 
   try {
     const invoices = await sql<InvoicesTable[]>`
       SELECT
         invoices.id,
+        invoices.patient_id,
         invoices.amount,
         invoices.date,
         invoices.status,
-        customers.name,
-        customers.email,
-        customers.image_url
+        patients.full_name AS patient_name,
+        patients.phone
       FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      WHERE
-        customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`} OR
-        invoices.amount::text ILIKE ${`%${query}%`} OR
-        invoices.date::text ILIKE ${`%${query}%`} OR
-        invoices.status ILIKE ${`%${query}%`}
+      JOIN patients ON invoices.patient_id = patients.id
+      WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
+        AND (
+          patients.full_name ILIKE ${`%${query}%`} OR
+          patients.phone ILIKE ${`%${query}%`} OR
+          invoices.amount::text ILIKE ${`%${query}%`} OR
+          invoices.date::text ILIKE ${`%${query}%`} OR
+          invoices.status ILIKE ${`%${query}%`}
+        )
       ORDER BY invoices.date DESC
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
@@ -127,16 +132,21 @@ export async function fetchFilteredInvoices(
 }
 
 export async function fetchInvoicesPages(query: string) {
+  const patientIds = await fetchVisiblePatientIds();
+  if (patientIds.length === 0) return 0;
+
   try {
     const data = await sql`SELECT COUNT(*)
     FROM invoices
-    JOIN customers ON invoices.customer_id = customers.id
-    WHERE
-      customers.name ILIKE ${`%${query}%`} OR
-      customers.email ILIKE ${`%${query}%`} OR
-      invoices.amount::text ILIKE ${`%${query}%`} OR
-      invoices.date::text ILIKE ${`%${query}%`} OR
-      invoices.status ILIKE ${`%${query}%`}
+    JOIN patients ON invoices.patient_id = patients.id
+    WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
+      AND (
+        patients.full_name ILIKE ${`%${query}%`} OR
+        patients.phone ILIKE ${`%${query}%`} OR
+        invoices.amount::text ILIKE ${`%${query}%`} OR
+        invoices.date::text ILIKE ${`%${query}%`} OR
+        invoices.status ILIKE ${`%${query}%`}
+      )
   `;
 
     const totalPages = Math.ceil(Number(data[0].count) / ITEMS_PER_PAGE);
@@ -148,15 +158,19 @@ export async function fetchInvoicesPages(query: string) {
 }
 
 export async function fetchInvoiceById(id: string) {
+  const patientIds = await fetchVisiblePatientIds();
+  if (patientIds.length === 0) return undefined;
+
   try {
     const data = await sql<InvoiceForm[]>`
       SELECT
         invoices.id,
-        invoices.customer_id,
+        invoices.patient_id,
         invoices.amount,
         invoices.status
       FROM invoices
-      WHERE invoices.id = ${id};
+      WHERE invoices.id = ${id}
+        AND invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[]);
     `;
 
     const invoice = data.map((invoice) => ({
@@ -169,56 +183,6 @@ export async function fetchInvoiceById(id: string) {
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoice.');
-  }
-}
-
-export async function fetchCustomers() {
-  try {
-    const customers = await sql<CustomerField[]>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
-
-    return customers;
-  } catch (err) {
-    console.error('Database Error:', err);
-    throw new Error('Failed to fetch all customers.');
-  }
-}
-
-export async function fetchFilteredCustomers(query: string) {
-  try {
-    const data = await sql<CustomersTableType[]>`
-		SELECT
-		  customers.id,
-		  customers.name,
-		  customers.email,
-		  customers.image_url,
-		  COUNT(invoices.id) AS total_invoices,
-		  SUM(CASE WHEN invoices.status = 'pending' THEN invoices.amount ELSE 0 END) AS total_pending,
-		  SUM(CASE WHEN invoices.status = 'paid' THEN invoices.amount ELSE 0 END) AS total_paid
-		FROM customers
-		LEFT JOIN invoices ON customers.id = invoices.customer_id
-		WHERE
-		  customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`}
-		GROUP BY customers.id, customers.name, customers.email, customers.image_url
-		ORDER BY customers.name ASC
-	  `;
-
-    const customers = data.map((customer) => ({
-      ...customer,
-      total_pending: formatCurrency(customer.total_pending),
-      total_paid: formatCurrency(customer.total_paid),
-    }));
-
-    return customers;
-  } catch (err) {
-    console.error('Database Error:', err);
-    throw new Error('Failed to fetch customer table.');
   }
 }
 
@@ -456,14 +420,18 @@ export async function fetchAppointmentStatusThisMonth(): Promise<StatusRow[]> {
   return data as StatusRow[]
 }
 
-export interface perMonth{
-  label: string
-  new_patients: number
+export interface perMonth {
+  month_start: string;
+  label: string;
+  new_patients: number;
 }
 
 export async function fetchPatientsPerMonth(): Promise<perMonth[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from('patients_per_month').select('label, new_patients')
+  const { data, error } = await supabase
+    .from('patients_per_month')
+    .select('month_start, label, new_patients')
+    .order('month_start', { ascending: true })
   if (error) throw new Error(error.message)
-    return data as perMonth[]
+  return data as perMonth[]
 }

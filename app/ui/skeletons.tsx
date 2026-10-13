@@ -44,6 +44,32 @@ export function RevenueChartSkeleton() {
   );
 }
 
+export function StatusDonutSkeleton() {
+  return (
+    <div className={`${shimmer} relative overflow-hidden`}>
+      <div className="flex h-[300px] items-center justify-center">
+        <div className="h-48 w-48 rounded-full border-[32px] border-gray-200" />
+      </div>
+      <div className="h-5 w-3/4 rounded-md bg-gray-200" />
+    </div>
+  );
+}
+
+export function PatientsChartSkeleton() {
+  return (
+    <div className={`${shimmer} relative h-[300px] w-full overflow-hidden`}>
+      <div className="flex h-full items-end justify-around gap-4 rounded-md bg-white px-6 pb-8 pt-6">
+        <div className="h-1/3 w-8 rounded-t-md bg-gray-200" />
+        <div className="h-2/3 w-8 rounded-t-md bg-gray-200" />
+        <div className="h-1/2 w-8 rounded-t-md bg-gray-200" />
+        <div className="h-4/5 w-8 rounded-t-md bg-gray-200" />
+        <div className="h-3/5 w-8 rounded-t-md bg-gray-200" />
+        <div className="h-2/5 w-8 rounded-t-md bg-gray-200" />
+      </div>
+    </div>
+  );
+}
+
 export function InvoiceSkeleton() {
   return (
     <div className="flex flex-row items-center justify-between border-b border-gray-100 py-4">
@@ -97,6 +123,18 @@ export default function DashboardSkeleton() {
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4 lg:grid-cols-8">
         <RevenueChartSkeleton />
         <LatestInvoicesSkeleton />
+        <div className="w-full md:col-span-4">
+          <div className="mb-4 h-8 w-3/4 rounded-md bg-gray-100" />
+          <div className="rounded-xl bg-gray-100 p-4">
+            <StatusDonutSkeleton />
+          </div>
+        </div>
+        <div className="w-full md:col-span-4">
+          <div className="mb-4 h-8 w-3/4 rounded-md bg-gray-100" />
+          <div className="rounded-xl bg-gray-100 p-4">
+            <PatientsChartSkeleton />
+          </div>
+        </div>
       </div>
     </>
   );
@@ -136,6 +174,70 @@ export function TableRowSkeleton() {
         </div>
       </td>
     </tr>
+  );
+}
+
+export function PatientsTableSkeleton() {
+  return (
+    <div className={`${shimmer} relative mt-6 w-full overflow-hidden`}>
+      <div className="rounded-lg bg-gray-50 p-2 md:pt-0">
+        <div className="md:hidden">
+          {[0, 1, 2, 3, 4, 5].map((row) => (
+            <div key={row} className="mb-2 rounded-md bg-white p-4 last:mb-0">
+              <div className="border-b border-gray-100 pb-4">
+                <div className="h-5 w-32 rounded bg-gray-100" />
+                <div className="mt-2 h-4 w-28 rounded bg-gray-100" />
+              </div>
+              <div className="flex items-start justify-between gap-3 pt-4">
+                <div className="space-y-2">
+                  <div className="h-4 w-40 rounded bg-gray-100" />
+                  <div className="h-4 w-24 rounded bg-gray-100" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-[38px] w-[38px] rounded bg-gray-100" />
+                  <div className="h-[38px] w-[38px] rounded bg-gray-100" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <table className="hidden min-w-full text-gray-900 md:table">
+          <thead className="rounded-lg text-left text-sm font-normal">
+            <tr>
+              <th className="px-4 py-5 font-medium sm:pl-6">Full name</th>
+              <th className="px-3 py-5 font-medium">Phone</th>
+              <th className="px-3 py-5 font-medium">Date of birth</th>
+              <th className="px-3 py-5 font-medium">Docs</th>
+              <th className="relative py-3 pl-6 pr-3"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody className="bg-white">
+            {[0, 1, 2, 3, 4, 5].map((row) => (
+              <tr key={row} className="w-full border-b py-3 text-sm last-of-type:border-none">
+                <td className="whitespace-nowrap py-3 pl-6 pr-3">
+                  <div className="h-5 w-32 rounded bg-gray-100" />
+                </td>
+                <td className="whitespace-nowrap px-3 py-3">
+                  <div className="h-5 w-28 rounded bg-gray-100" />
+                </td>
+                <td className="whitespace-nowrap px-3 py-3">
+                  <div className="h-5 w-24 rounded bg-gray-100" />
+                </td>
+                <td className="whitespace-nowrap px-3 py-3">
+                  <div className="h-5 w-20 rounded bg-gray-100" />
+                </td>
+                <td className="whitespace-nowrap py-3 pl-6 pr-3">
+                  <div className="flex justify-end gap-3">
+                    <div className="h-[38px] w-[38px] rounded bg-gray-100" />
+                    <div className="h-[38px] w-[38px] rounded bg-gray-100" />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { PieChart, Pie, Sector, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import type { PieSectorShapeProps, PieLabelRenderProps } from 'recharts'
+import type { DefaultLegendContentProps, PieSectorShapeProps, PieLabelRenderProps } from 'recharts'
 import type { StatusRow } from '@/app/lib/data'
 
 const DISPLAY: Record<string, string> = { booked: 'Booked', done: 'Done', no_show: 'No-show' }
@@ -9,6 +9,26 @@ const COLOURS: Record<string, string> = { Booked: '#2563eb', Done: '#16a34a', 'N
 
 function Slice(props: PieSectorShapeProps) {
   return <Sector {...props} fill={COLOURS[String(props.name)] ?? '#9ca3af'} />
+}
+
+function StatusLegend({ payload = [] }: DefaultLegendContentProps) {
+  return (
+    <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
+      {payload.map((entry) => {
+        const name = entry.value ?? ''
+        return (
+          <li key={name} className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="h-3 w-3 rounded-sm"
+              style={{ backgroundColor: COLOURS[name] ?? '#9ca3af' }}
+            />
+            <span>{name}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 function SliceLabel({ x, y, textAnchor, name, value, percent }: PieLabelRenderProps) {
@@ -43,7 +63,7 @@ export default function StatusDonut({ rows }: { rows: StatusRow[] }) {
             labelLine
           />
           <Tooltip />
-          <Legend />
+          <Legend content={StatusLegend} />
         </PieChart>
       </ResponsiveContainer>
       <p className="text-sm">

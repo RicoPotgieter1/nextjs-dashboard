@@ -6,7 +6,9 @@ import { Suspense } from 'react';
 import { 
     RevenueChartSkeleton,
     LatestInvoicesSkeleton,
-    CardsSkeleton
+    CardsSkeleton,
+    StatusDonutSkeleton,
+    PatientsChartSkeleton,
   } from '@/app/ui/skeletons';
 import { Metadata } from 'next';
 
@@ -14,15 +16,21 @@ import { fetchPatientsPerMonth, fetchAppointmentStatusThisMonth } from '@/app/li
 import PatientsChart from '@/app/ui/dashboard/patients-chart'
 import StatusDonut from '@/app/ui/dashboard/status-donut'
 
+async function StatusDonutData() {
+  const rows = await fetchAppointmentStatusThisMonth()
+  return <StatusDonut rows={rows} />
+}
+
+async function PatientsChartData() {
+  const rows = await fetchPatientsPerMonth()
+  return <PatientsChart rows={rows} />
+}
+
 export const metadata: Metadata = {
   title: 'Dashboard',
 };
 
   export default async function Page() {
-    const [perMonth, statusRows] = await Promise.all([
-    fetchPatientsPerMonth(),
-    fetchAppointmentStatusThisMonth(),
-    ]) 
   return (
     <main>
       <h1 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
@@ -48,17 +56,21 @@ export const metadata: Metadata = {
           </h2>
 
           <div className="rounded-xl bg-gray-50 p-4">
-            <StatusDonut rows={statusRows} />
+            <Suspense fallback={<StatusDonutSkeleton />}>
+              <StatusDonutData />
+            </Suspense>
           </div>
         </div>
 
         <div className="w-full md:col-span-4">
           <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
-            What share of this month's appointments are no-shows?
+            How many new patients are there per month
           </h2>
 
           <div className="rounded-xl bg-gray-50 p-4">
-            <PatientsChart rows={perMonth} />
+            <Suspense fallback={<PatientsChartSkeleton />}>
+              <PatientsChartData />
+            </Suspense>
           </div>
         </div>
 

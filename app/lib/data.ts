@@ -90,7 +90,7 @@ export async function fetchCardData() {
   }
 }
 
-const ITEMS_PER_PAGE = 6;
+export const ITEMS_PER_PAGE = 10;
 export async function fetchFilteredInvoices(
   query: string,
   currentPage: number,
@@ -246,6 +246,35 @@ export async function fetchPatients(): Promise<Patient[]> {
   return data as Patient[];
 }
 
+export async function fetchPatientsPage(currentPage: number): Promise<Patient[]> {
+  const supabase = await createClient();
+  const from = (currentPage - 1) * ITEMS_PER_PAGE;
+  const { data, error } = await supabase
+    .from('patients')
+    .select('id, user_id, full_name, phone, date_of_birth, created_at, file_path')
+    .order('created_at', { ascending: false })
+    .range(from, from + ITEMS_PER_PAGE - 1);
+
+  if (error) {
+    console.error('Supabase error:', error);
+    throw new Error('Failed to fetch patients.');
+  }
+  return data as Patient[];
+}
+
+export async function fetchPatientsPages(): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from('patients')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    console.error('Supabase error:', error);
+    throw new Error('Failed to fetch total number of patients.');
+  }
+  return Math.ceil((count ?? 0) / ITEMS_PER_PAGE);
+}
+
 export async function fetchPatientById(id: string): Promise<Patient | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -295,6 +324,45 @@ export async function fetchAppointments(): Promise<AppointmentRow[]> {
     ...appointment,
     patient_name: patientNames.get(appointment.patient_id) ?? null,
   }))
+}
+
+export async function fetchAppointmentsPage(currentPage: number): Promise<AppointmentRow[]> {
+  const supabase = await createClient()
+  const from = (currentPage - 1) * ITEMS_PER_PAGE
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('id, patient_id, starts_at, status')
+    .order('starts_at', { ascending: false })
+    .range(from, from + ITEMS_PER_PAGE - 1)
+  if (error) throw new Error(error.message)
+
+  const patientIds = [...new Set(data.map((appointment) => appointment.patient_id))]
+  const patientNames = new Map<string, string>()
+
+  if (patientIds.length > 0) {
+    const { data: patients, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, full_name')
+      .in('id', patientIds)
+    if (patientsError) throw new Error(patientsError.message)
+    for (const patient of patients) {
+      patientNames.set(patient.id, patient.full_name)
+    }
+  }
+
+  return data.map((appointment) => ({
+    ...appointment,
+    patient_name: patientNames.get(appointment.patient_id) ?? null,
+  }))
+}
+
+export async function fetchAppointmentsPages(): Promise<number> {
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('appointments')
+    .select('id', { count: 'exact', head: true })
+  if (error) throw new Error(error.message)
+  return Math.ceil((count ?? 0) / ITEMS_PER_PAGE)
 }
 
 export async function fetchPatientOptions(): Promise<{ id: string; full_name: string }[]> {

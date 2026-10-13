@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { fetchAppointments } from '@/app/lib/data'
+import { fetchAppointmentsPage, fetchAppointmentsPages } from '@/app/lib/data'
 import { formatSA } from '@/app/lib/time'
 import { deleteAppointment } from '@/app/lib/actions'
+import Pagination from '@/app/ui/invoices/pagination'
 
 const statusStyles = {
   booked: 'bg-blue-100 text-blue-700',
@@ -15,8 +16,15 @@ const statusLabels = {
   no_show: 'No-show',
 }
 
-export default async function Page() {
-  const rows = await fetchAppointments()
+export default async function Page(props: {
+  searchParams?: Promise<{ page?: string }>
+}) {
+  const searchParams = await props.searchParams
+  const totalPages = await fetchAppointmentsPages()
+  const requestedPage = Math.max(1, Number(searchParams?.page) || 1)
+  const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages)
+  const rows = await fetchAppointmentsPage(currentPage)
+
   return (
     <div className="w-full">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -34,7 +42,7 @@ export default async function Page() {
 
       <div className="mt-6 flow-root">
         <div className="inline-block min-w-full align-middle">
-          <div className="rounded-lg bg-gray-50 p-2 md:p-3">
+          <div className="rounded-lg bg-gray-50 p-2 md:pt-0">
             {rows.length === 0 ? (
               <div className="rounded-md bg-white px-4 py-12 text-center">
                 <p className="text-sm font-medium text-gray-900">No appointments yet</p>
@@ -46,7 +54,7 @@ export default async function Page() {
                   {rows.map((appointment) => {
                     const remove = deleteAppointment.bind(null, appointment.id)
                     return (
-                      <article key={appointment.id} className="mb-2 rounded-md bg-white p-4 last:mb-0">
+                      <article key={appointment.id} className="mb-2 w-full rounded-md bg-white p-4 last:mb-0">
                         <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
                           <div>
                             <p className="font-medium text-gray-900">{appointment.patient_name ?? 'Unknown patient'}</p>
@@ -68,29 +76,34 @@ export default async function Page() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="min-w-full text-left text-sm text-gray-900">
-                    <thead className="text-sm text-gray-600">
+                  <table className="min-w-full text-gray-900">
+                    <thead className="rounded-lg text-left text-sm font-normal">
                       <tr>
-                        <th scope="col" className="px-4 py-4 font-medium">Patient</th>
-                        <th scope="col" className="px-3 py-4 font-medium">Date and time</th>
-                        <th scope="col" className="px-3 py-4 font-medium">Status</th>
-                        <th scope="col" className="px-4 py-4"><span className="sr-only">Actions</span></th>
+                        <th scope="col" className="px-4 py-5 font-medium sm:pl-6">Patient</th>
+                        <th scope="col" className="px-3 py-5 font-medium">Date and time</th>
+                        <th scope="col" className="px-3 py-5 font-medium">Status</th>
+                        <th scope="col" className="relative py-3 pl-6 pr-3">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {rows.map((appointment) => {
                         const remove = deleteAppointment.bind(null, appointment.id)
                         return (
-                          <tr key={appointment.id} className="border-t border-gray-100">
-                            <td className="whitespace-nowrap px-4 py-4 font-medium">{appointment.patient_name ?? 'Unknown patient'}</td>
-                            <td className="whitespace-nowrap px-3 py-4 text-gray-600">{formatSA(appointment.starts_at)}</td>
-                            <td className="whitespace-nowrap px-3 py-4">
+                          <tr
+                            key={appointment.id}
+                            className="w-full border-b py-3 text-sm last-of-type:border-none [&:first-child>td:first-child]:rounded-tl-lg [&:first-child>td:last-child]:rounded-tr-lg [&:last-child>td:first-child]:rounded-bl-lg [&:last-child>td:last-child]:rounded-br-lg"
+                          >
+                            <td className="whitespace-nowrap py-3 pl-6 pr-3 font-medium">{appointment.patient_name ?? 'Unknown patient'}</td>
+                            <td className="whitespace-nowrap px-3 py-3">{formatSA(appointment.starts_at)}</td>
+                            <td className="whitespace-nowrap px-3 py-3">
                               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[appointment.status]}`}>
                                 {statusLabels[appointment.status]}
                               </span>
                             </td>
-                            <td className="whitespace-nowrap px-4 py-4">
-                              <div className="flex justify-end gap-4 font-medium">
+                            <td className="whitespace-nowrap py-3 pl-6 pr-3">
+                              <div className="flex justify-end gap-3 font-medium">
                                 <Link className="text-blue-600 hover:text-blue-800" href={`/dashboard/appointments/${appointment.id}/edit`}>Edit</Link>
                                 <form action={remove}>
                                   <button type="submit" className="text-red-600 hover:text-red-800">Delete</button>
@@ -108,6 +121,12 @@ export default async function Page() {
           </div>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-5 flex w-full justify-center">
+          <Pagination totalPages={totalPages} />
+        </div>
+      )}
     </div>
   )
 }

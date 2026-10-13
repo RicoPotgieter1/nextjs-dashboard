@@ -248,6 +248,7 @@ export async function createAppointment(formData: FormData) {
   })
   if (error) throw new Error(`${error.code}: ${error.message}`)
   revalidatePath('/dashboard/appointments')
+  revalidatePath('/dashboard/calendar')
   redirect('/dashboard/appointments')
 }
 
@@ -260,6 +261,7 @@ export async function updateAppointment(id: string, formData: FormData) {
     .eq('id', id)
   if (error) throw new Error(`${error.code}: ${error.message}`)
   revalidatePath('/dashboard/appointments')
+  revalidatePath('/dashboard/calendar')
   redirect('/dashboard/appointments')
 }
 
@@ -268,6 +270,7 @@ export async function deleteAppointment(id: string) {
   const { error } = await supabase.from('appointments').delete().eq('id', id)
   if (error) throw new Error(`${error.code}: ${error.message}`)
   revalidatePath('/dashboard/appointments')
+  revalidatePath('/dashboard/calendar')
 }
 
 export async function uploadPatientFile(patientId: string, formData: FormData) {

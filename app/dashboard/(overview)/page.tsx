@@ -64,7 +64,7 @@ export const metadata: Metadata = {
 
         <div className="w-full md:col-span-4">
           <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
-            How many new patients are there per month
+            Is the practice growing? New patients per month
           </h2>
 
           <div className="rounded-xl bg-gray-50 p-4">

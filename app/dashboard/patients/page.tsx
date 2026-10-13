@@ -1,28 +1,36 @@
-import { fetchPatientsPage, fetchPatientsPages } from '@/app/lib/data';
+import { fetchFilteredPatientsPage, fetchPatientsPages } from '@/app/lib/data';
 import { CreatePatient, UpdatePatient, DeletePatient } from '@/app/ui/patients/buttons';
 import { lusitana } from '@/app/ui/fonts';
 import { RefreshOnChange } from '@/app/ui/refresh-on-change';
 import Pagination from '@/app/ui/invoices/pagination';
+import Search from '@/app/ui/search';
 
 export default async function Page(props: {
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{ page?: string; query?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  const totalPages = await fetchPatientsPages();
+  const query = searchParams?.query || '';
+  const totalPages = await fetchPatientsPages(query);
   const requestedPage = Math.max(1, Number(searchParams?.page) || 1);
   const currentPage = totalPages === 0 ? 1 : Math.min(requestedPage, totalPages);
-  const patients = await fetchPatientsPage(currentPage);
+  const patients = await fetchFilteredPatientsPage(query, currentPage);
 
   return (
     <div className="w-full">
       <div className="flex w-full items-center justify-between">
         <h1 className={`${lusitana.className} text-2xl`}>Patients</h1>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
+        <Search placeholder="Search patients..." />
         <CreatePatient />
       </div>
 
       <RefreshOnChange table="patients" />
       {patients.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-500">No patients yet. Add the first one.</p>
+        <p className="mt-6 text-sm text-gray-500">
+          {query ? 'No patients match your search.' : 'No patients yet. Add the first one.'}
+        </p>
       ) : (
         <div className="mt-6 flow-root">
           <div className="inline-block min-w-full align-middle">

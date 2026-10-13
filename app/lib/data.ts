@@ -232,6 +232,24 @@ export type Patient = {
   file_path: string | null;
 };
 
+function ilikeSearchPattern(query: string): string {
+  return `"%${query.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`
+}
+
+function ilikeValuePattern(query: string): string {
+  return `%${query}%`
+}
+
+function patientSearchFilter(query: string): string {
+  const pattern = ilikeSearchPattern(query)
+  const filters = [`full_name.ilike.${pattern}`, `phone.ilike.${pattern}`]
+  const date = new Date(`${query}T00:00:00.000Z`)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(query) && date.toISOString().slice(0, 10) === query) {
+    filters.push(`date_of_birth.eq.${query}`)
+  }
+  return filters.join(',')
+}
+
 export async function fetchPatients(): Promise<Patient[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -247,11 +265,22 @@ export async function fetchPatients(): Promise<Patient[]> {
 }
 
 export async function fetchPatientsPage(currentPage: number): Promise<Patient[]> {
+  return fetchFilteredPatientsPage('', currentPage);
+}
+
+export async function fetchFilteredPatientsPage(
+  query: string,
+  currentPage: number,
+): Promise<Patient[]> {
   const supabase = await createClient();
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
-  const { data, error } = await supabase
+  let request = supabase
     .from('patients')
     .select('id, user_id, full_name, phone, date_of_birth, created_at, file_path')
+  if (query) {
+    request = request.or(patientSearchFilter(query));
+  }
+  const { data, error } = await request
     .order('created_at', { ascending: false })
     .range(from, from + ITEMS_PER_PAGE - 1);
 
@@ -262,11 +291,15 @@ export async function fetchPatientsPage(currentPage: number): Promise<Patient[]>
   return data as Patient[];
 }
 
-export async function fetchPatientsPages(): Promise<number> {
+export async function fetchPatientsPages(query = ''): Promise<number> {
   const supabase = await createClient();
-  const { count, error } = await supabase
+  let request = supabase
     .from('patients')
     .select('id', { count: 'exact', head: true });
+  if (query) {
+    request = request.or(patientSearchFilter(query));
+  }
+  const { count, error } = await request;
 
   if (error) {
     console.error('Supabase error:', error);
@@ -327,11 +360,34 @@ export async function fetchAppointments(): Promise<AppointmentRow[]> {
 }
 
 export async function fetchAppointmentsPage(currentPage: number): Promise<AppointmentRow[]> {
+  return fetchFilteredAppointmentsPage('', currentPage);
+}
+
+async function fetchPatientIdsByName(query: string): Promise<string[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('patients')
+    .select('id')
+    .ilike('full_name', ilikeValuePattern(query))
+  if (error) throw new Error(error.message)
+  return data.map((patient) => patient.id)
+}
+
+export async function fetchFilteredAppointmentsPage(
+  query: string,
+  currentPage: number,
+): Promise<AppointmentRow[]> {
   const supabase = await createClient()
   const from = (currentPage - 1) * ITEMS_PER_PAGE
-  const { data, error } = await supabase
+  let request = supabase
     .from('appointments')
     .select('id, patient_id, starts_at, status')
+  if (query) {
+    const patientIds = await fetchPatientIdsByName(query)
+    if (patientIds.length === 0) return []
+    request = request.in('patient_id', patientIds)
+  }
+  const { data, error } = await request
     .order('starts_at', { ascending: false })
     .range(from, from + ITEMS_PER_PAGE - 1)
   if (error) throw new Error(error.message)
@@ -356,11 +412,17 @@ export async function fetchAppointmentsPage(currentPage: number): Promise<Appoin
   }))
 }
 
-export async function fetchAppointmentsPages(): Promise<number> {
+export async function fetchAppointmentsPages(query = ''): Promise<number> {
   const supabase = await createClient()
-  const { count, error } = await supabase
+  let request = supabase
     .from('appointments')
     .select('id', { count: 'exact', head: true })
+  if (query) {
+    const patientIds = await fetchPatientIdsByName(query)
+    if (patientIds.length === 0) return 0
+    request = request.in('patient_id', patientIds)
+  }
+  const { count, error } = await request
   if (error) throw new Error(error.message)
   return Math.ceil((count ?? 0) / ITEMS_PER_PAGE)
 }

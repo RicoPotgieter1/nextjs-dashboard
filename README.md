@@ -27,6 +27,7 @@ Password: 12345678
 * There is no mailing system set up for appointment reminders
 * There’s no patient self-service portal for booking or viewing appointments
 * No easy way of adding new accounts
+* Limited data sorting and filtering on the tables
 
 ## What I would do next:
 * Add a client page so clients can set their own appointments

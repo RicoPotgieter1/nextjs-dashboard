@@ -10,7 +10,8 @@ Clinic Care helps clinics manage patient records, schedule appointments, view ap
 2. Is the practice growing? New patients per month
 
 ## DEMO LOGIN (for reviewers)
-Email: testuser1@gmail.com /n
+Email: testuser1@gmail.com
+
 Password: 12345678
 
 ## Tech Stack:

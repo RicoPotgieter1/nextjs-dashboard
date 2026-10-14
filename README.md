@@ -15,13 +15,11 @@ Password: 12345678
 
 ## Tech Stack:
 * Vercel
-* Supabase (Postgres, Auth, Row Level Security (RLS))
+* Supabase
 * Tailwind 
-* next.js (App Router, Server Actions)
+* next.js
 * React 
 * Typescript 
-* Recharts
-* charts.js
 * FullCalendar 
 * pnpm
 

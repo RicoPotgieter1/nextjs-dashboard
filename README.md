@@ -11,17 +11,16 @@ Clinic Care helps clinics manage patient records, schedule appointments, view ap
 
 ## DEMO LOGIN (for reviewers)
 Email: testuser1@gmail.com
+
 Password: 12345678
 
 ## Tech Stack:
 * Vercel
-* Supabase (Postgres, Auth, Row Level Security (RLS))
+* Supabase
 * Tailwind 
-* next.js (App Router, Server Actions)
+* next.js
 * React 
 * Typescript 
-* Recharts
-* charts.js
 * FullCalendar 
 * pnpm
 
@@ -29,6 +28,7 @@ Password: 12345678
 * There is no mailing system set up for appointment reminders
 * There’s no patient self-service portal for booking or viewing appointments
 * No easy way of adding new accounts
+* Limited data sorting and filtering on the tables
 
 ## What I would do next:
 * Add a client page so clients can set their own appointments

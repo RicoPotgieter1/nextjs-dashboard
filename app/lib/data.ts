@@ -23,6 +23,8 @@ const sql =
 
 if (process.env.NODE_ENV !== 'production') globalForSql.sql = sql;
 
+const UUID_ARRAY_OID = 2951;
+
 export async function fetchRevenue() {
   const supabase = await createClient();
   const { data, error } = await supabase.from("revenue").select("month, revenue")
@@ -43,7 +45,7 @@ export async function fetchLatestInvoices() {
       SELECT invoices.amount, patients.full_name AS patient_name, patients.phone, invoices.id
       FROM invoices
       JOIN patients ON invoices.patient_id = patients.id
-      WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
+      WHERE invoices.patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[])
       ORDER BY invoices.date DESC
       LIMIT 5`;
 
@@ -76,7 +78,7 @@ export async function fetchCardData() {
         SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid,
         SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending
       FROM invoices
-      WHERE patient_id = ANY(${sql.array(patientIds)}::uuid[])
+      WHERE patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[])
     `;
 
     return {
@@ -112,7 +114,7 @@ export async function fetchFilteredInvoices(
         patients.phone
       FROM invoices
       JOIN patients ON invoices.patient_id = patients.id
-      WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
+      WHERE invoices.patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[])
         AND (
           patients.full_name ILIKE ${`%${query}%`} OR
           patients.phone ILIKE ${`%${query}%`} OR
@@ -139,7 +141,7 @@ export async function fetchInvoicesPages(query: string) {
     const data = await sql`SELECT COUNT(*)
     FROM invoices
     JOIN patients ON invoices.patient_id = patients.id
-    WHERE invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[])
+    WHERE invoices.patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[])
       AND (
         patients.full_name ILIKE ${`%${query}%`} OR
         patients.phone ILIKE ${`%${query}%`} OR
@@ -170,7 +172,7 @@ export async function fetchInvoiceById(id: string) {
         invoices.status
       FROM invoices
       WHERE invoices.id = ${id}
-        AND invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[]);
+        AND invoices.patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[]);
     `;
 
     const invoice = data.map((invoice) => ({

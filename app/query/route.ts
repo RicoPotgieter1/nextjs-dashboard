@@ -5,6 +5,7 @@ const sql = postgres(process.env.POSTGRES_URL!, {
   ssl: 'require',
   prepare: false,
 });
+const UUID_ARRAY_OID = 2951;
 
 async function listInvoices(patientIds: string[]) {
   if (patientIds.length === 0) return [];
@@ -14,7 +15,7 @@ async function listInvoices(patientIds: string[]) {
     FROM invoices
     LEFT JOIN patients ON invoices.patient_id = patients.id
     WHERE invoices.amount = 666
-      AND invoices.patient_id = ANY(${sql.array(patientIds)}::uuid[]);
+      AND invoices.patient_id = ANY(${sql.array(patientIds, UUID_ARRAY_OID)}::uuid[]);
   `;
 
 	return data;

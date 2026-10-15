@@ -10,6 +10,7 @@ import { fetchVisiblePatientIds } from '@/app/lib/patient-access';
 
 
 const sql = postgres(process.env.POSTGRES_URL!, {ssl: 'require'});
+const UUID_ARRAY_OID = 2951;
  
 const FormSchema = z.object({
   id: z.string(),
@@ -116,7 +117,7 @@ export async function updateInvoice(
       UPDATE invoices
       SET patient_id = ${patientId}, amount = ${amountInCents}, status = ${status}
       WHERE id = ${id}
-        AND patient_id = ANY(${sql.array(visiblePatientIds)}::uuid[])
+        AND patient_id = ANY(${sql.array(visiblePatientIds, UUID_ARRAY_OID)}::uuid[])
       RETURNING id
     `;
     if (updated.length === 0) {
@@ -141,7 +142,7 @@ export async function deleteInvoice(id: string) {
   const deleted = await sql`
     DELETE FROM invoices
     WHERE id = ${id}
-      AND patient_id = ANY(${sql.array(visiblePatientIds)}::uuid[])
+      AND patient_id = ANY(${sql.array(visiblePatientIds, UUID_ARRAY_OID)}::uuid[])
     RETURNING id
   `;
   if (deleted.length === 0) {
